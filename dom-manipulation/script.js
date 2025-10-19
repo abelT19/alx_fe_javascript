@@ -1,18 +1,27 @@
-// Array of initial quotes
-let quotes = [
+// Load quotes from local storage or use default
+let quotes = JSON.parse(localStorage.getItem('quotes')) || [
   { text: "The best way to get started is to quit talking and begin doing.", category: "Motivation" },
   { text: "Life is what happens when you're busy making other plans.", category: "Life" },
   { text: "Don't watch the clock; do what it does. Keep going.", category: "Motivation" },
   { text: "Be yourself; everyone else is already taken.", category: "Humor" }
 ];
 
-// References to DOM elements
+// DOM references
 const quoteDisplay = document.getElementById("quoteDisplay");
 const newQuoteBtn = document.getElementById("newQuote");
 const categorySelect = document.getElementById("categorySelect");
 const addQuoteFormContainer = document.getElementById("addQuoteFormContainer");
+const exportBtn = document.getElementById("exportBtn");
 
-// Function to populate categories dynamically
+// SESSION STORAGE: store last displayed quote
+let lastQuoteIndex = sessionStorage.getItem('lastQuoteIndex') || null;
+
+// Save quotes to local storage
+function saveQuotes() {
+  localStorage.setItem('quotes', JSON.stringify(quotes));
+}
+
+// Update category dropdown dynamically
 function updateCategoryOptions() {
   const categories = [...new Set(quotes.map(q => q.category))];
   categorySelect.innerHTML = '';
@@ -24,7 +33,7 @@ function updateCategoryOptions() {
   });
 }
 
-// Function to show a random quote based on selected category
+// Show random quote by selected category
 function showRandomQuote() {
   const selectedCategory = categorySelect.value;
   const filteredQuotes = quotes.filter(q => q.category === selectedCategory);
@@ -34,9 +43,13 @@ function showRandomQuote() {
   }
   const randomIndex = Math.floor(Math.random() * filteredQuotes.length);
   quoteDisplay.textContent = filteredQuotes[randomIndex].text;
+
+  // Save last shown quote in session storage
+  sessionStorage.setItem('lastQuoteIndex', randomIndex);
+  lastQuoteIndex = randomIndex;
 }
 
-// Function to create a form to add new quotes
+// Create Add Quote form dynamically
 function createAddQuoteForm() {
   const formDiv = document.createElement("div");
 
@@ -61,7 +74,7 @@ function createAddQuoteForm() {
   addQuoteFormContainer.appendChild(formDiv);
 }
 
-// Function to add a new quote
+// Add a new quote
 function addQuote() {
   const quoteText = document.getElementById("newQuoteText").value.trim();
   const quoteCategory = document.getElementById("newQuoteCategory").value.trim();
@@ -71,21 +84,56 @@ function addQuote() {
     return;
   }
 
-  // Add to quotes array
   quotes.push({ text: quoteText, category: quoteCategory });
-
-  // Update category options
+  saveQuotes();
   updateCategoryOptions();
 
-  // Clear inputs
   document.getElementById("newQuoteText").value = '';
   document.getElementById("newQuoteCategory").value = '';
 
   alert("Quote added successfully!");
 }
 
+// JSON Export
+function exportQuotesToJson() {
+  const dataStr = JSON.stringify(quotes, null, 2);
+  const blob = new Blob([dataStr], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "quotes.json";
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// JSON Import
+function importFromJsonFile(event) {
+  const fileReader = new FileReader();
+  fileReader.onload = function(e) {
+    try {
+      const importedQuotes = JSON.parse(e.target.result);
+      if (!Array.isArray(importedQuotes)) throw new Error("Invalid JSON format");
+      quotes.push(...importedQuotes);
+      saveQuotes();
+      updateCategoryOptions();
+      alert('Quotes imported successfully!');
+    } catch(err) {
+      alert("Error importing JSON: " + err.message);
+    }
+  };
+  fileReader.readAsText(event.target.files[0]);
+}
+
 // Initial setup
 updateCategoryOptions();
 createAddQuoteForm();
+
+// Event listeners
 categorySelect.addEventListener("change", showRandomQuote);
 newQuoteBtn.addEventListener("click", showRandomQuote);
+exportBtn.addEventListener("click", exportQuotesToJson);
+
+// Show last quote from session storage on page load
+if (lastQuoteIndex !== null && quotes[lastQuoteIndex]) {
+  quoteDisplay.textContent = quotes[lastQuoteIndex].text;
+}
